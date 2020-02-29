@@ -11,19 +11,20 @@ export default class Repository extends Component {
   state = {
     repository: {},
     issues: [],
+    issuesState: 'open',
     loading: true,
   };
 
   async componentDidMount() {
     const { match } = this.props;
-
+    const { issuesState } = this.state;
     const repoName = decodeURIComponent(match.params.repository);
 
     const [repository, issues] = await Promise.all([
       api.get(`/repos/${repoName}`),
       api.get(`/repos/${repoName}/issues`, {
         params: {
-          state: 'all',
+          state: issuesState,
           per_page: 5,
         },
       }),
@@ -35,6 +36,53 @@ export default class Repository extends Component {
       loading: false,
     });
   }
+
+  handleClick = async issuesState => {
+    this.setState({
+      loading: true,
+    });
+
+    const { match } = this.props;
+
+    const repoName = decodeURIComponent(match.params.repository);
+
+    const issues = await api.get(`/repos/${repoName}/issues`, {
+      params: {
+        state: issuesState,
+        per_page: 5,
+      },
+    });
+
+    this.setState({
+      issues: issues.data,
+      issuesState,
+      loading: false,
+    });
+  };
+
+  loadMore = async () => {
+    this.setState({
+      loading: true,
+    });
+
+    const { match } = this.props;
+    const { issuesState } = this.state;
+    const repoName = decodeURIComponent(match.params.repository);
+
+    const issues = await api.get(`/repos/${repoName}/issues`, {
+      params: {
+        state: issuesState,
+        per_page: 5,
+        page: 2,
+      },
+    });
+
+    this.setState({
+      issues: issues.data,
+      issuesState,
+      loading: false,
+    });
+  };
 
   render() {
     const { repository, issues, loading } = this.state;
@@ -53,12 +101,26 @@ export default class Repository extends Component {
         </Owner>
 
         <IssueList>
+          <button type="button" onClick={() => this.handleClick('open')}>
+            open
+          </button>
+          <button type="button" onClick={() => this.handleClick('closed')}>
+            closed
+          </button>
+          <button type="button" onClick={() => this.handleClick('all')}>
+            all
+          </button>
+
           {issues.map(issue => (
             <li key={String(issue.id)}>
               <img src={issue.user.avatar_url} alt={issue.user.login} />
               <div>
                 <strong>
-                  <a href={issue.html_url} target="_blank">
+                  <a
+                    href={issue.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {issue.title}
                   </a>
                   {issue.labels.map(label => (
@@ -70,6 +132,9 @@ export default class Repository extends Component {
             </li>
           ))}
         </IssueList>
+
+        <button type="button">{'<'}</button>
+        <button type="button">{'>'}</button>
       </Container>
     );
   }
